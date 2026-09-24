@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="空气监测">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232ecc71'/%3E%3Ctext x='50' y='65' font-size='45' text-anchor='middle' fill='white' font-family='sans-serif'%3FAQ%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232ecc71'/%3E%3Ctext x='50' y='65' font-size='45' text-anchor='middle' fill='white' font-family='sans-serif'%3FAQ%3C/text%3E%3C/svg%3E">
+<title>远程空气监测</title>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#0f1419;color:#e8eef5;min-height:100vh;padding:16px 14px 40px}
+  .wrap{max-width:520px;margin:0 auto}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .topbar h1{font-size:18px;font-weight:600}
+  .conn{font-size:12px;padding:4px 12px;border-radius:12px;background:#ffffff10}
+  .conn.on{background:#2ecc7120;color:#2ecc71}
+  .conn.off{background:#e74c3c20;color:#e74c3c}
+  .tabs{display:flex;background:#1a2332;border-radius:14px;padding:4px;margin-bottom:14px;overflow-x:auto}
+  .tabs button{flex:1;padding:9px 0;border:none;background:transparent;color:#8a95a5;font-size:13px;border-radius:10px;cursor:pointer;white-space:nowrap}
+  .tabs button.on{background:#2ecc71;color:#fff;font-weight:600}
+  .hero{background:linear-gradient(145deg,#1a2332,#141c28);border:1px solid #ffffff12;border-radius:22px;padding:24px 20px;text-align:center;margin-bottom:12px}
+  .hero .lbl{font-size:13px;opacity:.55;margin-bottom:6px;letter-spacing:1px}
+  .hero .num{font-size:80px;font-weight:700;line-height:1;letter-spacing:-3px}
+  .hero .unit{font-size:14px;opacity:.5;margin-top:4px}
+  .badge{display:inline-block;margin-top:14px;padding:7px 22px;border-radius:18px;font-size:15px;font-weight:600;color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+  .metric{background:#1a2332;border:1px solid #ffffff10;border-radius:14px;padding:12px 8px;text-align:center}
+  .metric .lbl{font-size:11px;opacity:.5;margin-bottom:3px}
+  .metric .val{font-size:24px;font-weight:600}
+  .metric .u{font-size:10px;opacity:.4}
+  .card{background:#1a2332;border:1px solid #ffffff10;border-radius:16px;padding:14px;margin-bottom:12px}
+  .card h3{font-size:14px;margin-bottom:10px;opacity:.8}
+  .mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .mode-btn{padding:12px 4px;background:#0f1419;border:1px solid #ffffff10;border-radius:12px;color:#cdd6e0;font-size:13px;text-align:center;cursor:pointer}
+  .mode-btn.on{background:#2ecc71;color:#fff;font-weight:600;border-color:#2ecc71}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .row label{font-size:13px;opacity:.7;width:60px}
+  input[type=range]{flex:1;height:6px;-webkit-appearance:none;background:#2a3548;border-radius:3px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#2ecc71;cursor:pointer}
+  input[type=color]{width:50px;height:40px;border:none;border-radius:8px;background:transparent;cursor:pointer}
+  .bright-val{font-size:13px;width:40px;text-align:right;opacity:.8}
+  .btn{padding:14px;background:#2a3548;border:none;border-radius:12px;color:#e8eef5;font-size:14px;cursor:pointer}
+  .btn:active{opacity:.7}
+  .btn.green{background:#2ecc71}
+  .btn.blue{background:#3498db}
+  .btn.red{background:#e74c3c}
+  .btn.gray{background:#1a2332}
+  .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  canvas{width:100%;height:180px;display:block}
+  .legend{display:flex;gap:14px;padding:4px 6px 0;font-size:11px;opacity:.7}
+  .legend span{display:inline-flex;align-items:center}
+  .legend i{width:10px;height:2px;display:inline-block;margin-right:5px}
+  .hidden{display:none!important}
+  .hist-tabs{display:flex;gap:6px;margin-bottom:10px}
+  .hist-tabs button{flex:1;padding:8px;background:#0f1419;border:1px solid #ffffff10;border-radius:8px;color:#8a95a5;font-size:12px;cursor:pointer}
+  .hist-tabs button.on{background:#3498db;color:#fff}
+  .foot{text-align:center;font-size:11px;opacity:.35;margin-top:16px}
+  .updated{font-size:11px;opacity:.4;text-align:center;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>远程空气监测</h1>
+    <span class="conn off" id="conn">连接中...</span>
+  </div>
+
+  <div class="tabs">
+    <button data-view="live" class="on">实时</button>
+    <button data-view="1d">1天</button>
+    <button data-view="3d">3天</button>
+    <button data-view="7d">7天</button>
+    <button data-view="led">灯带</button>
+  </div>
+
+  <div id="view-live">
+    <div class="hero">
+      <div class="lbl">PM2.5</div>
+      <div class="num" id="pm25">--</div>
+      <div class="unit">μg/m³</div>
+      <div><span class="badge" id="badge" style="background:#555">--</span></div>
+    </div>
+    <div class="grid">
+      <div class="metric"><div class="lbl">PM1.0</div><div class="val" id="pm1">--</div><div class="u">μg/m³</div></div>
+      <div class="metric"><div class="lbl">PM2.5</div><div class="val" id="pm25s">--</div><div class="u">μg/m³</div></div>
+      <div class="metric"><div class="lbl">噪音</div><div class="val" id="db">--</div><div class="u">dB</div></div>
+    </div>
+    <div class="card">
+      <h3>快捷控制</h3>
+      <div class="btn-grid">
+        <button class="btn green" onclick="sendCmd('ledauto')">空气联动</button>
+        <button class="btn gray" onclick="sendCmd('ledoff')">关灯带</button>
+        <button class="btn blue" onclick="sendCmd('melody')">播放旋律</button>
+        <button class="btn red" onclick="sendCmd('alarm')">警报</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-hist" class="hidden">
+    <div class="card">
+      <h3>历史趋势</h3>
+      <canvas id="cHist"></canvas>
+      <div class="legend">
+        <span><i style="background:#2ecc71"></i>PM2.5</span>
+        <span><i style="background:#3498db"></i>PM10</span>
+        <span><i style="background:#9b59b6"></i>PM1.0</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-led" class="hidden">
+    <div class="card">
+      <h3>灯带模式</h3>
+      <div class="mode-grid" id="modeGrid">
+        <button class="mode-btn" data-mode="ledauto">空气联动</button>
+        <button class="mode-btn" data-mode="ledsound">声音律动</button>
+        <button class="mode-btn" data-mode="ledstatic">静态</button>
+        <button class="mode-btn" data-mode="ledbreathe">呼吸灯</button>
+        <button class="mode-btn" data-mode="ledchase">跑马灯</button>
+        <button class="mode-btn" data-mode="ledrainbow">彩虹</button>
+        <button class="mode-btn" data-mode="ledblink">闪烁</button>
+        <button class="mode-btn" data-mode="ledoff">关闭</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><label>颜色</label><input type="color" id="colorPick" value="#ff5555"></div>
+      <div class="row"><label>亮度</label><input type="range" id="brightSlider" min="0" max="255" value="60"><span class="bright-val" id="brightVal">60</span></div>
+    </div>
+  </div>
+
+  <div class="updated" id="updated"></div>
+  <div class="foot">巴法云 MQTT · 远程监控</div>
+</div>
+
+<script>
+const UID = '88c084577f244dfe91a742849fe8d8b8';
+const TOPIC_DATA = 'airdata001';
+const TOPIC_CMD  = 'aircmd001';
+
+const connEl = document.getElementById('conn');
+let currentView = 'live';
+let histData = [];
+let client = null;
+
+function getLevel(v) {
+  if (v <= 35) return ['优', '#2ecc71'];
+  if (v <= 75) return ['良', '#f1c40f'];
+  if (v <= 115) return ['轻度污染', '#e67e22'];
+  if (v <= 150) return ['中度污染', '#e74c3c'];
+  if (v <= 250) return ['重度污染', '#9b59b6'];
+  return ['严重污染', '#7b241c'];
+}
+
+function connect() {
+  client = mqtt.connect('wss://bemfa.com:9504/wss', {
+    clientId: UID, username: '', password: '', keepalive: 30
+  });
+
+  client.on('connect', () => {
+    connEl.textContent = '已连接';
+    connEl.className = 'conn on';
+    client.subscribe(TOPIC_DATA);
+    console.log('[MQTT] connected');
+  });
+  client.on('disconnect', () => {
+    connEl.textContent = '已断开';
+    connEl.className = 'conn off';
+  });
+  client.on('reconnect', () => {
+    connEl.textContent = '重连中...';
+    connEl.className = 'conn off';
+  });
+  client.on('error', (err) => {
+    connEl.textContent = '错误';
+    connEl.className = 'conn off';
+    console.error(err);
+  });
+  client.on('message', (topic, payload) => {
+    const text = payload.toString();
+    // 尝试解析为 JSON
+    try {
+      const d = JSON.parse(text);
+      if (Array.isArray(d)) {
+        // 历史数据
+        histData = d;
+        drawHist();
+      } else if (d.pm25 !== undefined) {
+        // 实时数据
+        document.getElementById('pm25').textContent = d.pm25;
+        document.getElementById('pm25s').textContent = d.pm25;
+        document.getElementById('pm1').textContent = d.pm1;
+        document.getElementById('db').textContent = d.db;
+        const [label, color] = getLevel(d.pm25);
+        const badge = document.getElementById('badge');
+        badge.textContent = label;
+        badge.style.background = color;
+        const now = new Date();
+        document.getElementById('updated').textContent =
+          '更新于 ' + String(now.getHours()).padStart(2,'0') + ':' +
+          String(now.getMinutes()).padStart(2,'0') + ':' +
+          String(now.getSeconds()).padStart(2,'0');
+      }
+    } catch(e) {}
+  });
+}
+
+function sendCmd(cmd) {
+  if (!client || !client.connected) { alert('未连接到服务器'); return; }
+  client.publish(TOPIC_CMD + '/set', cmd);
+}
+
+function requestHist(range) {
+  sendCmd('hist:' + range);
+}
+
+// 标签切换
+document.querySelectorAll('.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    currentView = btn.dataset.view;
+    document.getElementById('view-live').classList.toggle('hidden', currentView !== 'live');
+    const showHist = (currentView === '1d' || currentView === '3d' || currentView === '7d');
+    document.getElementById('view-hist').classList.toggle('hidden', !showHist);
+    document.getElementById('view-led').classList.toggle('hidden', currentView !== 'led');
+    if (showHist) {
+      requestHist(currentView);
+      setTimeout(drawHist, 300);
+    }
+  });
+});
+
+// 灯带模式
+document.querySelectorAll('#modeGrid .mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#modeGrid .mode-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    sendCmd(btn.dataset.mode);
+  });
+});
+
+// 颜色
+document.getElementById('colorPick').addEventListener('change', (e) => {
+  sendCmd('color:' + e.target.value.replace('#', ''));
+});
+
+// 亮度
+const brightSlider = document.getElementById('brightSlider');
+brightSlider.addEventListener('input', e => {
+  document.getElementById('brightVal').textContent = e.target.value;
+});
+brightSlider.addEventListener('change', e => {
+  sendCmd('bright:' + e.target.value);
+});
+
+// 历史曲线
+function drawHist() {
+  const c = document.getElementById('cHist');
+  if (!c) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth, H = c.clientHeight;
+  c.width = W * dpr; c.height = H * dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  if (histData.length < 2) {
+    ctx.fillStyle = '#ffffff40';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('暂无历史数据（需运行一段时间后才有）', W/2, H/2);
+    return;
+  }
+  let maxV = 10;
+  for (const p of histData) {
+    if (p.p25 > maxV) maxV = p.p25;
+    if (p.p10 > maxV) maxV = p.p10;
+  }
+  maxV = Math.ceil(maxV * 1.2 / 10) * 10;
+  const padL = 30, padR = 8, padT = 8, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  ctx.strokeStyle = '#ffffff10'; ctx.fillStyle = '#ffffff50';
+  ctx.font = '10px sans-serif'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + ch * (1 - i/4);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillText(Math.round(maxV * i / 4), 4, y + 3);
+  }
+  // x轴标签
+  ctx.fillStyle = '#ffffff40';
+  const n = histData.length;
+  for (let i = 0; i <= 4; i++) {
+    const idx = Math.floor(i * (n - 1) / 4);
+    const p = histData[idx];
+    const x = padL + (i / 4) * cw;
+    const d = new Date(p.t * 1000);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const md = (d.getMonth() + 1) + '/' + d.getDate();
+    ctx.fillText(md + ' ' + hh + ':' + mm, x - 22, H - 6);
+  }
+  const xFor = (i) => padL + (i / (n - 1)) * cw;
+  const yFor = (v) => padT + ch * (1 - Math.min(v < 0 ? 0 : v, maxV) / maxV);
+  const series = [
+    { g: p => p.p25, c: '#2ecc71' },
+    { g: p => p.p10, c: '#3498db' },
+    { g: p => p.p1,  c: '#9b59b6' }
+  ];
+  for (const s of series) {
+    ctx.strokeStyle = s.c; ctx.lineWidth = 2; ctx.beginPath();
+    histData.forEach((p, i) => {
+      const x = xFor(i), y = yFor(s.g(p));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+}
+
+window.addEventListener('resize', () => {
+  if (currentView !== 'live') drawHist();
+});
+
+connect();
+</script>
+</body>
+</html>
