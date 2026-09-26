@@ -77,6 +77,7 @@
     <button data-view="3d">3天</button>
     <button data-view="7d">7天</button>
     <button data-view="led">灯带</button>
+    <button data-view="motor">电机</button>
   </div>
 
   <div id="view-live">
@@ -131,6 +132,20 @@
     <div class="card">
       <div class="row"><label>颜色</label><input type="color" id="colorPick" value="#ff5555"></div>
       <div class="row"><label>亮度</label><input type="range" id="brightSlider" min="0" max="255" value="60"><span class="bright-val" id="brightVal">60</span></div>
+    </div>
+  </div>
+
+  <div id="view-motor" class="hidden">
+    <div class="card" style="text-align:center;padding:20px">
+      <h3>风扇电机</h3>
+      <div style="font-size:48px;font-weight:700" id="rpmVal">--</div>
+      <div style="opacity:.5;font-size:13px;margin-bottom:16px">RPM 转速</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn green" style="flex:1" onclick="motorCmd('motoron')">开机</button>
+        <button class="btn red" style="flex:1" onclick="motorCmd('motoroff')">关机</button>
+      </div>
+      <div class="row"><label>自动</label><button class="btn blue" style="flex:1" onclick="motorCmd('motorauto')">跟随空气质量</button></div>
+      <div class="row"><label>速度</label><input type="range" id="motorSlider" min="0" max="100" value="50"><span class="bright-val" id="motorSpeedVal">50%</span></div>
     </div>
   </div>
 
@@ -196,6 +211,7 @@ function connect() {
         document.getElementById('pm25s').textContent = d.pm25;
         document.getElementById('pm1').textContent = d.pm1;
         document.getElementById('db').textContent = d.db;
+        if (d.rpm !== undefined) document.getElementById('rpmVal').textContent = d.rpm;
         const [label, color] = getLevel(d.pm25);
         const badge = document.getElementById('badge');
         badge.textContent = label;
@@ -215,6 +231,15 @@ function sendCmd(cmd) {
   client.publish(TOPIC_CMD + '/set', cmd);
 }
 
+function motorCmd(cmd) { sendCmd(cmd); }
+const motorSlider = document.getElementById('motorSlider');
+motorSlider.addEventListener('input', e => {
+  document.getElementById('motorSpeedVal').textContent = e.target.value + '%';
+});
+motorSlider.addEventListener('change', e => {
+  sendCmd('motorspeed:' + e.target.value);
+});
+
 function requestHist(range) {
   sendCmd('hist:' + range);
 }
@@ -229,6 +254,7 @@ document.querySelectorAll('.tabs button').forEach(btn => {
     const showHist = (currentView === '1d' || currentView === '3d' || currentView === '7d');
     document.getElementById('view-hist').classList.toggle('hidden', !showHist);
     document.getElementById('view-led').classList.toggle('hidden', currentView !== 'led');
+    document.getElementById('view-motor').classList.toggle('hidden', currentView !== 'motor');
     if (showHist) {
       requestHist(currentView);
       setTimeout(drawHist, 300);
