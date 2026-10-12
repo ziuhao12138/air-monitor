@@ -174,7 +174,7 @@ function getLevel(v) {
 
 function connect() {
   client = mqtt.connect('wss://bemfa.com:9504/wss', {
-    clientId: UID + 'web', username: '', password: '', keepalive: 30
+    clientId: UID, username: '', password: '', keepalive: 30
   });
 
   client.on('connect', () => {
